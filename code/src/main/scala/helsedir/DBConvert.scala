@@ -5,6 +5,10 @@ import java.text.SimpleDateFormat
 import java.sql.Connection
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import java.io.FileInputStream
+import org.apache.poi.xssf.usermodel.XSSFCell
+import org.apache.poi.ss.usermodel.Cell
+import org.apache.poi.hssf.usermodel.HSSFDateUtil
+import org.apache.poi.ss.usermodel.DateUtil
 
 case class Column(name: String, dataType: String)
 case class Row(columns: Seq[String]) extends AnyVal
@@ -214,9 +218,8 @@ object DBConvert {
   }
 
   def recreateReferenceTable(file: File) = {
-    ???
     import collection.JavaConverters._
-    val dao = new DAO
+    //    val dao = new DAO
 
     val fis = new FileInputStream(file)
     try {
@@ -224,9 +227,21 @@ object DBConvert {
       val sheetIterator = workbook.iterator.asScala
       sheetIterator.foreach { sheet =>
         val tableName = sheet.getSheetName
-        
+
         val rowIterator = sheet.rowIterator().asScala
-        
+
+        println(tableName)
+        rowIterator.foreach { row =>
+          row.cellIterator().asScala.foreach { cell =>
+            val output =
+              if (cell.getCellType() == Cell.CELL_TYPE_STRING) cell.getStringCellValue() + " is string"
+              else if (cell.getCellType() == Cell.CELL_TYPE_NUMERIC && DateUtil.isCellDateFormatted(cell)) cell.getDateCellValue() + " is date"
+              else if (cell.getCellType() == Cell.CELL_TYPE_NUMERIC) cell.getNumericCellValue() + " is number"
+              else if (cell.getCellType() == Cell.CELL_TYPE_BOOLEAN) cell.getBooleanCellValue() + " is boolean"
+              else cell + " has unknown type " + cell.getCellType()
+              println(output)
+          }
+        }
       }
 
     } finally {
@@ -239,9 +254,9 @@ object DBConvert {
 
     val typeMapping = TypeMap.read(typeMapFile)
 
-    recreateActivityTable(new File("../data/2013_12_aktivitet_HF_NASJ.txt"), new ReadActivity(typeMapping))
+    //    recreateActivityTable(new File("../data/2013_12_aktivitet_HF_NASJ.txt"), new ReadActivity(typeMapping))
 
-    //recreateReferenceTable(new File("../data/Referansetabell_2013 20 juni.xlsx"))
+    recreateReferenceTable(new File("../data/Referansetabell_2013 20 juni.xlsx"))
 
   }
 }
