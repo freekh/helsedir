@@ -5,6 +5,7 @@ import org.apache.poi.ss.usermodel.Cell
 import org.apache.poi.ss.usermodel.DateUtil
 import java.io.FileInputStream
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
+import org.apache.poi.ss.usermodel.Sheet
 
 /** Excel referanse tabell **/
 object ReferenceTable {
@@ -14,18 +15,20 @@ object ReferenceTable {
   val DoubleType = "DOUBLE"
   val BooleanType = "BOOLEAN"
 
+  val Null = "NULL"
+
   def determineColumnTypes(sheetName: String, rowIterator: Iterator[org.apache.poi.ss.usermodel.Row]) = {
     import collection.JavaConverters._
     if (!rowIterator.hasNext) throw new Exception("Could not find any columns in " + sheetName)
     val columns = rowIterator.next().cellIterator().asScala.toSeq //TODO: check empty
-    val columnNames = columns.map(_.getStringCellValue())
+    val columnNames = columns.map(_.getStringCellValue()).toList
 
     var columnMap = columns.map(_.getColumnIndex() -> "").toMap
 
     rowIterator.foreach { row =>
       row.cellIterator().asScala.foreach { cell =>
         val columnIndex = cell.getColumnIndex()
-        
+
         if (columnIndex < columns.size) {
           if (cell.getCellType() == Cell.CELL_TYPE_NUMERIC && DateUtil.isCellDateFormatted(cell) && (columnMap(columnIndex) == "" || columnMap(columnIndex) == DateType)) {
             columnMap += columnIndex -> DateType
@@ -44,20 +47,23 @@ object ReferenceTable {
             if (cell.getCellType() != Cell.CELL_TYPE_BLANK) throw new Exception("Sheet: " + cell.getSheet().getSheetName + " row: " + cell.getRowIndex() + " col: " + cell.getColumnIndex() + " has an unknown type: " + cell.getCellType() + " content: " + cell + " column map: " + columnMap)
           }
         } else {
-          println("WARNING: Cell is in not found column skipping cell in sheet: " + cell.getSheet().getSheetName + " row: " + cell.getRowIndex() + " col: " + cell.getColumnIndex() + " type: " + cell.getCellType() + " content: " + cell + " column map: " + columnMap)
+          if (cell.getCellType() != Cell.CELL_TYPE_BLANK) //do not warn if empty
+            println("WARNING: Cell does not have a header (not part of table), so skipping location: sheet:" + cell.getSheet().getSheetName + " row: " + cell.getRowIndex() + " col: " + cell.getColumnIndex() + " type: " + cell.getCellType() + " content: '" + cell + "' column map: " + columnMap + " column names: " + columnNames)
         }
       }
     }
 
     if (columnMap.size != columnNames.size) throw new AssertionError(columnMap + " does not have the same size as the names: " + columnNames)
-    (columnNames zip columnMap).map {
+    (columnNames zip columnMap.toSeq.sortBy(_._1)).map {
       case (name, (_, guessedDataType)) =>
         val dataType = if (guessedDataType.isEmpty()) "VARCHAR" else guessedDataType //default is VARCHAR
         Column(name, dataType)
     }.toList -> columnMap
   }
 
-  def createReferenceTable(file: File, dao: DAO) = {
+ 
+  def sheetToTableName(sheet: Sheet): String = {
+    sheet.getSheetName
   }
 
   def convertCell2DBValue(cell: Cell, columnMap: Map[Int, String]): String = {
@@ -78,18 +84,21 @@ object ReferenceTable {
       quote(cell.getStringCellValue())
     } else {
       if (cell.getCellType() == Cell.CELL_TYPE_BLANK) {
-        "NULL"
+        Null
       } else if (cell.getCellType() == Cell.CELL_TYPE_ERROR) {
         println("ERROR: Found error cell in sheet: " + cell.getSheet().getSheetName + " row: " + cell.getRowIndex() + " col: " + cell.getColumnIndex() + " type: " + cell.getCellType() + " content: '" + cell)
-        cell.toString
-      } else  throw new Exception("Sheet: " + cell.getSheet().getSheetName + " row: " + cell.getRowIndex() + " col: " + cell.getColumnIndex() + " has an unknown type: " + cell.getCellType() + " content: '" + cell)
+        Null //skip 
+      } else throw new Exception("Sheet: " + cell.getSheet().getSheetName + " row: " + cell.getRowIndex() + " col: " + cell.getColumnIndex() + " has an unknown type: " + cell.getCellType() + " content: '" + cell)
     }
   }
 }
 
 class ReferenceTable(file: File) extends TableCreator {
+  override val id = file.getName
+
+  
   import ReferenceTable._
-  def slurp(createTableIfNotExists: Seq[Column] => Unit)(insertRow: Row => Unit) = {
+  def slurp(createTableIfNotExists: (String, Seq[Column]) => Unit)(insertRow: (String, Row) => Unit) = {
     import collection.JavaConverters._
 
     val fis = new FileInputStream(file)
@@ -97,20 +106,34 @@ class ReferenceTable(file: File) extends TableCreator {
       val workbook = new XSSFWorkbook(fis)
       val sheetIterator = workbook.iterator.asScala
       sheetIterator.foreach { sheet =>
-        val tableName = sheet.getSheetName
+        val tableName = sheetToTableName(sheet)
+        val result = try {
+          val (columns, columnMap) = determineColumnTypes(sheet.getSheetName, sheet.rowIterator.asScala) //TODO: here we go through all rows 2 times and we have lots of non-DRY code :(
+          createTableIfNotExists(tableName, columns)
+          Right(columns -> columnMap)
+        } catch {
+          case e: Exception =>
+            Left(("Could not create table" + e.getMessage) -> e)
+        }
+        result match {
+          case Right((columns, columnMap)) =>
 
-        val (columns, columnMap) = determineColumnTypes(sheet.getSheetName, sheet.rowIterator.asScala) //TODO: here we go through all rows 2 times and we have lots of non-DRY code :(
-        createTableIfNotExists(columns)
-
-        val rowIterator = sheet.rowIterator().asScala
-//        if (rowIterator.hasNext) rowIterator.next() //skip header
-        rowIterator.foreach { row =>
-          insertRow(Row(row.cellIterator().asScala.map { cell =>
-            convertCell2DBValue(cell, columnMap)
-          }.toList))
+            val rowIterator = sheet.rowIterator().asScala
+            if (rowIterator.hasNext) rowIterator.next() //skip header
+            rowIterator.foreach { row =>
+              val rawRowData = row.cellIterator().asScala.map { cell =>
+                cell.getColumnIndex() -> convertCell2DBValue(cell, columnMap)
+              }.toMap
+              val rowData = Row(columns.zipWithIndex.map {
+                case (_, index) =>
+                  rawRowData.getOrElse(index, Null)
+              }.toList)
+              insertRow(tableName, rowData)
+            }
+          case Left((msg, e)) => 
+            println("ERROR: skipping " +tableName + " because: " + msg)
         }
       }
-
     } finally {
       fis.close()
     }

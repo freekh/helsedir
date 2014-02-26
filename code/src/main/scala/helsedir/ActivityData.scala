@@ -4,6 +4,10 @@ import java.io.File
 
 /** Aktivitets data **/
 class ActivityData(file: File, typeMapping: Map[String, String]) extends TableCreator {
+  override val id = file.getName
+  
+  val tableName = "file_" + file.getName.replace(".", "_") 
+  
   val Seperator = "\t"
 
   def getDataTypes(line: String): Array[String] = {
@@ -26,14 +30,14 @@ class ActivityData(file: File, typeMapping: Map[String, String]) extends TableCr
     Row(TypeMap.convertRow(index, columns))
   }
 
-  def slurp(createTableIfNotExists: Seq[Column] => Unit)(insertRow: Row => Unit) = {
+  def slurp(createTableIfNotExists: (String, Seq[Column]) => Unit)(insertRow: (String, Row) => Unit) = {
     val lines = io.Source.fromFile(file, Defaults.Encoding).getLines
     if (!lines.hasNext) throw new Exception(file + " has no lines")
     val headerLine = lines.next()
     val columns = TypeMap.convertColumns(parseColumns(headerLine))
-    createTableIfNotExists(columns)
+    createTableIfNotExists(tableName, columns)
     lines.foreach { line =>
-      insertRow(parseRow(line, columns))
+      insertRow(tableName, parseRow(line, columns))
     }
   }
 }

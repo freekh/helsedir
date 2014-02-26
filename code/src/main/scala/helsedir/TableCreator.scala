@@ -1,11 +1,12 @@
 package helsedir
 
 trait TableCreator {
-  def slurp(createTableIfNotExists: Seq[Column] => Unit)(insertRow: Row => Unit)
+  val id: String
+  def slurp(createTableIfNotExists: (String, Seq[Column]) => Unit)(insertRow: (String, Row) => Unit)
 }
 
 object TableCreator {
-  def createTable(tableName: String, tableCreator: TableCreator, dao: DAO, dropBeforeInsert: Boolean = false) = {
+  def createTable(tableCreator: TableCreator, dao: DAO, dropBeforeInsert: Boolean = false) = {
     try {
       var i = 1
       def printProgress() = {
@@ -14,10 +15,10 @@ object TableCreator {
         i = i + 1
         print((i - 1).toString + " completed...")
       }
-      tableCreator.slurp { columns =>
+      tableCreator.slurp { (tableName, columns) =>
         if (dropBeforeInsert) dao.dropTable(tableName)
         dao.createTable(tableName, columns)
-      } { row =>
+      } { (tableName, row) =>
         printProgress()
         dao.insert(tableName, row)
         if (i % 100 == 0) dao.connection.commit()

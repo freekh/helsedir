@@ -12,20 +12,21 @@ import org.apache.poi.ss.usermodel.DateUtil
 
 object DBConvert {
   def main(args: Array[String]) = {
+    val dropBeforeInsert = true
+    val dao = new DAO
+    
     val typeMapFile = new File("../typemap.properties")
 
     val typeMapping = TypeMap.read(typeMapFile)
 
-    //    recreateActivityTable(new File("../data/2013_12_aktivitet_HF_NASJ.txt"), new ReadActivity(typeMapping))
-    //    val activityFile = new File("../data/2013_12_aktivitet_HF_NASJ.txt")
-    //    val tableName = "file_" + activityFile.getName.replace(".", "_")
+    //val activityFile = new File("../data/2013_12_aktivitet_HF_NASJ.txt")
+    val activityFile = new File("../data/2011_12_aktivitet_HF_NASJ.txt")
+    val activity = new ActivityData(activityFile, typeMapping)
+    TableCreator.createTable(activity, dao, dropBeforeInsert = dropBeforeInsert)
 
     val refTable = new ReferenceTable(new File("../data/Referansetabell_2013 20 juni.xlsx"))
-    refTable.slurp { columns =>
-      println(columns)
-    } { row =>
-      println(row)
-    }
 
+//    TableCreator.createTable(refTable, dao, dropBeforeInsert = dropBeforeInsert)
+    
   }
 }

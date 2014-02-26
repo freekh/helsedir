@@ -9,7 +9,7 @@ class DAO {
   lazy val connection = { //TODO: use connection pool or something more efficient&safe
     import org.h2.jdbcx.JdbcDataSource
     val ds = new JdbcDataSource()
-    ds.setURL("jdbc:h2:~/helsedir/foo")
+    ds.setURL("jdbc:h2:~/Projects/helsedir/dbfiles")
     ds.setUser("sa")
     ds.setPassword("")
     ds.getConnection()
@@ -19,7 +19,7 @@ class DAO {
     val statement = connection.createStatement()
     try {
       statement.execute(
-        s"""CREATE TABLE IF NOT EXISTS $name (${columns.map(c => c.name + " " + c.dataType).mkString("", ",", ",")} ID INTEGER AUTO_INCREMENT, PRIMARY KEY (ID))""")
+        s"""CREATE TABLE IF NOT EXISTS "$name" (${columns.map(c => "\""+c.name+"\"" + " " + c.dataType).mkString("", ",", ",")} ID INTEGER AUTO_INCREMENT, PRIMARY KEY (ID))""")
     } finally {
       statement.close()
     }
@@ -29,14 +29,14 @@ class DAO {
     val statement = connection.createStatement()
     try {
       statement.execute(
-        s"""DROP TABLE IF EXISTS T$name""")
+        s"""DROP TABLE IF EXISTS "$name"""")
     } finally {
       statement.close()
     }
   }
 
   def insert(name: String, row: Row) = {
-    val statement = connection.prepareStatement(s"INSERT INTO $name VALUES(${row.columns.mkString(",")}, NULL)")
+    val statement = connection.prepareStatement(s"""INSERT INTO "$name" VALUES(${row.columns.mkString(",")}, NULL)""")
     try {
       statement.execute()
     } finally {
