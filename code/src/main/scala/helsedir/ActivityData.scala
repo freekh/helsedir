@@ -35,7 +35,8 @@ class ActivityData(file: File, typeMapping: Map[String, String]) extends TableCr
     if (!lines.hasNext) throw new Exception(file + " has no lines")
     val headerLine = lines.next()
     val columns = TypeMap.convertColumns(parseColumns(headerLine))
-    createTableIfNotExists(tableName, columns)
+//    createTableIfNotExists(tableName, columns)
+    
     lines.foreach { line =>
       insertRow(tableName, parseRow(line, columns))
     }

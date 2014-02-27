@@ -9,13 +9,7 @@ import org.apache.poi.ss.usermodel.Sheet
 
 /** Excel referanse tabell **/
 object ReferenceTable {
-  val StringType = "VARCHAR"
-  val DateType = "DATE"
-  val IntegerType = "INTEGER"
-  val DoubleType = "DOUBLE"
-  val BooleanType = "BOOLEAN"
-
-  val Null = "NULL"
+	import DAO._
 
   def determineColumnTypes(sheetName: String, rowIterator: Iterator[org.apache.poi.ss.usermodel.Row]) = {
     import collection.JavaConverters._
@@ -69,7 +63,7 @@ object ReferenceTable {
   def convertCell2DBValue(cell: Cell, columnMap: Map[Int, String]): String = {
     import Utils.quote
     if (cell.getCellType() == Cell.CELL_TYPE_NUMERIC && DateUtil.isCellDateFormatted(cell)) {
-      quote(Defaults.DBDateFormat.format(cell.getDateCellValue()))
+      quote(DateFormat.format(cell.getDateCellValue()))
     } else if (cell.getCellType() == Cell.CELL_TYPE_NUMERIC) {
       val numeric = if (cell.getNumericCellValue().toInt.toDouble == cell.getNumericCellValue()) {
         cell.getNumericCellValue().toInt.toString
@@ -94,6 +88,7 @@ object ReferenceTable {
 }
 
 class ReferenceTable(file: File) extends TableCreator {
+  import DAO._
   override val id = file.getName
 
   

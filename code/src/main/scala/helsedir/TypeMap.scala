@@ -5,8 +5,10 @@ import java.text.SimpleDateFormat
 
 //Move to separate package with ActivityData
 object TypeMap {
+  import DAO._
+  
   val inputFormat = new SimpleDateFormat("yyyy-MM")
-  val outputFormat = Defaults.DBDateFormat
+  val outputFormat = DateFormat
 
 
   def convertDate(value: String): String = {
@@ -15,7 +17,7 @@ object TypeMap {
   }
 
   def convertInteger(value: String) = {
-    if (value.trim().isEmpty()) "NULL"
+    if (value.trim().isEmpty()) Null
     else value
   }
 
@@ -26,21 +28,21 @@ object TypeMap {
   }
 
   def convertVarchar(value: String) = {
-    if (value.trim().isEmpty()) "NULL"
+    if (value.trim().isEmpty()) Null
     else Utils.quote(value)
   }
 
   val TypeConversions = Map(
-    "COMMA_DOUBLE" -> "DOUBLE",
-    "DATE" -> "DATE",
-    "VARCHAR" -> "VARCHAR",
-    "INTEGER" -> "INTEGER")
+    "COMMA_DOUBLE" -> DoubleType,
+    "DATE" -> DateType,
+    "VARCHAR" -> StringType,
+    "INTEGER" -> IntegerType)
 
   val ValueConversions = Map(
-    "DOUBLE" -> convertCommaDouble _,
-    "DATE" -> convertDate _,
-    "VARCHAR" -> convertVarchar _,
-    "INTEGER" -> convertInteger _)
+    DoubleType-> convertCommaDouble _,
+    DateType -> convertDate _,
+    StringType -> convertVarchar _,
+    IntegerType -> convertInteger _)
 
   def convertColumns(columns: Seq[Column]): Seq[Column] = {
     columns.map { column =>
