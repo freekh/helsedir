@@ -23,6 +23,7 @@ object TableCreator {
         dao.insert(tableName, row)
         if (i % 100 == 0) dao.connection.commit()
       }
+      println
     } finally {
       dao.connection.close()
     }
