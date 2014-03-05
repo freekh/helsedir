@@ -1,0 +1,6 @@
+#null options: include-nulls no-nulls 
+#format: source column;readable name;target table name;target column;null options
+AKTIVITET_HF
+pas_reg;pasientregion;Ref Pasientregion;PASIENTREGION_ID;include-nulls
+sykehusområde;sykehusområde;Ref Sykehusområde;SO_ID;include-nulls
+drg_type;drg;Ref DRG_type;DRG_type_ID;include-nulls
